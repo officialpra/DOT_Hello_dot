@@ -22,9 +22,18 @@ export const metadata = {
   description: "A creative studio making digital and magical experiences.",
 };
 
+// Silence the THREE.Clock deprecation warning if it's coming from library internals
+if (typeof window !== "undefined") {
+  const originalWarn = console.warn;
+  console.warn = (...args) => {
+    if (args[0] && typeof args[0] === 'string' && args[0].includes("THREE.Clock")) return;
+    originalWarn(...args);
+  };
+}
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${inter.variable} ${garamond.variable}`}>
+    <html lang="en" className={`${inter.variable} ${garamond.variable}`} suppressHydrationWarning>
       <body>
         <PageShell>{children}</PageShell>
       </body>

@@ -10,14 +10,14 @@ const FeaturedProjectsSection = () => {
   const col3 = PROJECTS.filter((_, i) => i % 3 === 2);
 
   return (
-    <section className="bg-white pt-20 pb-24 px-8 md:px-10">
+    <section className=" pt-20 pb-24 px-8 md:px-10">
       <div className="max-w-[1400px] mx-auto">
         {/* Section Header */}
-        <div className="mb-20">
+        {/* <div className="mb-20">
           <h2 className="font-garamond text-[ clamp(32px,5vw,72px) ] text-black font-normal leading-none tracking-tight">
             Branding
           </h2>
-        </div>
+        </div> */}
 
         {/* Masonry-style Grid (3 Flex Columns with 83px gap) */}
         <div className="flex flex-col md:flex-row gap-[83px]">
