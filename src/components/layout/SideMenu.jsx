@@ -17,7 +17,6 @@ const SOCIAL_LINKS = [
     { label: "Twitter", href: "https://twitter.com" },
 ];
 
-// Out-Expo easing — snappy start, silky deceleration (matching hellomonday.com)
 const EASE_OUT_EXPO = "cubic-bezier(0.22, 1, 0.36, 1)";
 
 const SideMenu = ({ isOpen, onClose, onOpen }) => {
