@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const NAV_LINKS = [
     { label: "Work", href: "/work" },
@@ -17,7 +18,7 @@ const SOCIAL_LINKS = [
     { label: "Twitter", href: "https://twitter.com" },
 ];
 
-const EASE_OUT_EXPO = "cubic-bezier(0.22, 1, 0.36, 1)";
+const EASE_OUT_EXPO = [0.22, 1, 0.36, 1];
 
 // ============================================================================
 // MATH HELPERS
@@ -32,17 +33,16 @@ function clamp(val, min, max) {
 }
 
 // ============================================================================
-// SVG PATH GENERATOR
-// Builds a cubic-bezier path that bulges at the mouse Y position
+// SVG PATH GENERATOR (For Trigger)
 // ============================================================================
 
 function generateWavePath(mouseY, height, bulgeAmount, spread) {
-    const my = clamp(mouseY, 0, 1);  // Allow full range — no artificial padding
+    const my = clamp(mouseY, 0, 1);
     const h = height;
     const svgW = 100;
     const right = svgW;
 
-    const BASE_BULGE = 0;   // Completely invisible at rest
+    const BASE_BULGE = 0;
     const MAX_BULGE = 70;
     const activeBulge = BASE_BULGE + (bulgeAmount * (MAX_BULGE - BASE_BULGE));
 
@@ -50,8 +50,6 @@ function generateWavePath(mouseY, height, bulgeAmount, spread) {
     const peakY = my * h;
     const halfSpread = spread * 0.5;
 
-    // NO clamping — let the curve extend beyond viewport bounds
-    // The SVG clips it naturally via overflow:hidden
     const topStartY = peakY - spread;
     const botEndY = peakY + spread;
 
@@ -68,15 +66,15 @@ function generateWavePath(mouseY, height, bulgeAmount, spread) {
 }
 
 // ============================================================================
-// LIQUID WAVE TRIGGER COMPONENT (Performance-Optimized)
+// LIQUID WAVE TRIGGER COMPONENT
 // ============================================================================
 
 const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
     const pathRef = useRef(null);
     const iconRef = useRef(null);
     const rafRef = useRef(null);
-    const isRunning = useRef(false);     // . Track if loop is active
-    const cachedHeight = useRef(900);    // . Cache height to avoid layout thrash
+    const isRunning = useRef(false);
+    const cachedHeight = useRef(900);
 
     const mouseState = useRef({
         targetY: 0.5,
@@ -86,17 +84,15 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
     });
 
     const SPREAD = 350;
-    const SENSOR_WIDTH = 50;       // Only activate within 50px of right edge
+    const SENSOR_WIDTH = 50;
     const SVG_WIDTH = 100;
 
-    // . Start the animation loop (only if not already running)
     const startLoop = useCallback(() => {
         if (isRunning.current) return;
         isRunning.current = true;
         rafRef.current = requestAnimationFrame(updateFrame);
     }, []);
 
-    // . Stop the animation loop
     const stopLoop = useCallback(() => {
         isRunning.current = false;
         if (rafRef.current) {
@@ -105,18 +101,14 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
         }
     }, []);
 
-    // Animation loop
     const updateFrame = useCallback(() => {
         if (!isRunning.current) return;
 
         const st = mouseState.current;
 
-        // Lerp toward targets
         st.currentY = lerp(st.currentY, st.targetY, 0.08);
         st.currentBulge = lerp(st.currentBulge, st.targetBulge, 0.06);
 
-        // . Convergence check — if the wave has fully retracted AND
-        // values have settled, STOP the loop entirely (save CPU)
         const bulgeSettled = Math.abs(st.currentBulge - st.targetBulge) < 0.001;
         const ySettled = Math.abs(st.currentY - st.targetY) < 0.001;
 
@@ -136,7 +128,6 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
             pathRef.current.setAttribute("d", path);
         }
 
-        // Move icon to the curve's tip (peak center)
         if (iconRef.current) {
             const peakY = st.currentY * h;
             const BASE_BULGE = 0;
@@ -145,14 +136,12 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
             const peakX = SVG_WIDTH - activeBulge;
             const iconX = (peakX + SVG_WIDTH) / 2;
             iconRef.current.style.transform = `translate(${iconX | 0}px, ${peakY | 0}px) translate(-50%, -50%)`;
-            // Fade icon in/out with the wave
             iconRef.current.style.opacity = st.currentBulge > 0.15 ? String(clamp(st.currentBulge * 2, 0, 1)) : "0";
         }
 
         rafRef.current = requestAnimationFrame(updateFrame);
     }, []);
 
-    // . Cache viewport height (only on resize, not every frame)
     useEffect(() => {
         const updateHeight = () => { cachedHeight.current = window.innerHeight; };
         updateHeight();
@@ -160,26 +149,22 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
         return () => window.removeEventListener("resize", updateHeight);
     }, []);
 
-    // Cleanup on unmount
     useEffect(() => {
         return () => stopLoop();
     }, [stopLoop]);
 
-    // Mouse tracking — only processes near right edge to avoid card conflicts
     useEffect(() => {
         const handleMove = (e) => {
             const w = window.innerWidth;
             const distFromRight = w - e.clientX;
 
-            // Early exit — don't process if mouse is far from right edge
-            // This prevents interference with ProjectCard liquid effects
             if (distFromRight > SENSOR_WIDTH + 20) {
                 const st = mouseState.current;
                 if (st.targetBulge > 0) {
                     st.targetBulge = 0;
                     if (st.currentBulge > 0.002) startLoop();
                 }
-                return; // . Skip all processing
+                return;
             }
 
             const st = mouseState.current;
@@ -206,7 +191,6 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
 
     return (
         <div className="fixed right-0 top-0 z-50 hidden md:block" style={{ width: `${SVG_WIDTH}px`, height: "100vh", pointerEvents: "none", overflow: "hidden" }}>
-            {/* Invisible sensor */}
             <div
                 style={{
                     position: "fixed",
@@ -221,7 +205,6 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
                 onClick={onOpen}
             />
 
-            {/* SVG Wave — GPU-composited */}
             <svg
                 viewBox={`0 0 ${SVG_WIDTH} ${h}`}
                 preserveAspectRatio="none"
@@ -232,7 +215,7 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
                     width: `${SVG_WIDTH}px`,
                     height: "100vh",
                     pointerEvents: "none",
-                    willChange: "transform", // . GPU layer promotion
+                    willChange: "transform",
                 }}
             >
                 <path
@@ -242,7 +225,6 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
                 />
             </svg>
 
-            {/* Hamburger icon — follows curve tip */}
             <div
                 ref={iconRef}
                 style={{
@@ -264,6 +246,45 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
 };
 
 // ============================================================================
+// CURVED PANEL COMPONENTS
+// ============================================================================
+
+const Curve = () => {
+    // Premium 2-segment cubic bezier paths for a truly liquid feel
+    const initialPath = `M 100 0 C 100 25, 100 25, 100 50 C 100 75, 100 75, 100 100`;
+    const targetPath = `M 100 0 C 100 25, 50 25, 50 50 C 50 75, 100 75, 100 100`;
+    const curve = {
+        initial: { d: initialPath },
+
+        enter: {
+            d: targetPath,
+            transition: {
+                duration: 1.1,
+                ease: [0.22, 1, 0.36, 1],
+            }
+        },
+
+        exit: {
+            d: targetPath,
+            transition: {
+                duration: 1.1,
+                ease: [0.22, 1, 0.36, 1],
+            }
+        }
+    };
+
+    return (
+        <svg
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            className="absolute top-0 -left-[99px] w-[100px] h-full fill-black stroke-none pointer-events-none"
+        >
+            <motion.path variants={curve} initial="initial" animate="enter" exit="exit" />
+        </svg>
+    );
+};
+
+// ============================================================================
 // MAIN SIDEMENU COMPONENT
 // ============================================================================
 
@@ -273,12 +294,30 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
         return () => { document.body.style.overflow = ""; };
     }, [isOpen]);
 
+    const menuSlide = {
+        initial: { x: "calc(100% + 100px)" },
+        enter: { x: "0%", transition: { duration: 0.8, ease: [0.76, 0, 0.24, 1] } },
+        exit: { x: "calc(100% + 100px)", transition: { duration: 0.8, ease: [0.76, 0, 0.24, 1] } }
+    };
+
+    const linkSlide = {
+        initial: { x: 80, opacity: 0 },
+        enter: (i) => ({
+            x: 0,
+            opacity: 1,
+            transition: { duration: 0.8, ease: [0.76, 0, 0.24, 1], delay: 0.05 * i + 0.3 }
+        }),
+        exit: (i) => ({
+            x: 80,
+            opacity: 0,
+            transition: { duration: 0.8, ease: [0.76, 0, 0.24, 1], delay: 0.05 * i }
+        })
+    };
+
     return (
         <>
-            {/* LIQUID WAVE TRIGGER — replaces the old static pill */}
             <LiquidWaveTrigger onOpen={onOpen} isOpen={isOpen} />
 
-            {/* Mobile hamburger */}
             <button
                 onClick={onOpen}
                 className="md:hidden fixed top-6 right-6 z-40 flex flex-col gap-[5px] p-2"
@@ -289,191 +328,101 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                 <span className="block w-4 h-[1.5px] bg-black rounded-full" />
             </button>
 
-            {/* ─────────────────────────────────────────────────────────────
-          LAYER 1 — Black background overlay
-      ───────────────────────────────────────────────────────────────── */}
-            <div
-                onClick={onClose}
-                style={{
-                    position: "fixed",
-                    inset: 0,
-                    zIndex: 100,
-                    backgroundColor: "#000",
-                    opacity: isOpen ? 1 : 0,
-                    pointerEvents: isOpen ? "auto" : "none",
-                    transition: `opacity ${isOpen ? "0.5s" : "0.4s"} ease`,
-                    transitionDelay: isOpen ? "0ms" : "450ms",
-                }}
-            />
-
-            {/* ─────────────────────────────────────────────────────────────
-          LAYER 2 — Content (logo, nav, social)
-      ───────────────────────────────────────────────────────────────── */}
-            <div
-                style={{
-                    position: "fixed",
-                    inset: 0,
-                    zIndex: 110,
-                    pointerEvents: isOpen ? "none" : "none",
-                }}
-            >
-                {/* ── Logo top-left ── */}
-                <div
-                    style={{
-                        position: "absolute",
-                        top: "40px",
-                        left: "40px",
-                        opacity: isOpen ? 1 : 0,
-                        transform: isOpen ? "translateY(0)" : "translateY(-10px)",
-                        transition: `opacity 0.5s ease, transform 0.5s ${EASE_OUT_EXPO}`,
-                        transitionDelay: isOpen ? "220ms" : "0ms",
-                        pointerEvents: "none",
-                    }}
-                >
-                    <p
-                        className="text-white font-sans font-bold select-none"
-                        style={{ fontSize: "10px", lineHeight: 1.35, letterSpacing: "0.02em" }}
-                    >
-                        HELLO<br />MONDAY<br />/DEPT.
-                    </p>
-                </div>
-
-                {/* ── Nav links — staggered cascade ── */}
-                <nav
-                    style={{
-                        position: "absolute",
-                        inset: 0,
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        paddingLeft: "clamp(40px, 48%, 58%)",
-                        pointerEvents: isOpen ? "auto" : "none",
-                    }}
-                >
-                    {NAV_LINKS.map((link, i) => {
-                        const openDelay = 220 + i * 80;
-                        const closeDelay = 0;
-                        return (
-                            <Link
-                                key={link.href}
-                                href={link.href}
-                                onClick={onClose}
-                                style={{
-                                    display: "block",
-                                    opacity: isOpen ? 1 : 0,
-                                    transform: isOpen ? "translateY(0)" : "translateY(18px)",
-                                    transition: `opacity 0.55s ${EASE_OUT_EXPO}, transform 0.55s ${EASE_OUT_EXPO}`,
-                                    transitionDelay: isOpen ? `${openDelay}ms` : `${closeDelay}ms`,
-                                }}
-                            >
-                                <span
-                                    className="font-garamond text-white block"
-                                    style={{
-                                        fontSize: "clamp(56px, 7.5vw, 108px)",
-                                        lineHeight: 1.1,
-                                        letterSpacing: "0.01em",
-                                        fontWeight: 400,
-                                        transition: "opacity 0.25s ease",
-                                    }}
-                                    onMouseEnter={e => { e.currentTarget.style.opacity = "0.45"; }}
-                                    onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
-                                >
-                                    {link.label}
-                                </span>
-                            </Link>
-                        );
-                    })}
-                </nav>
-
-                {/* ── Social links — bottom center ── */}
-                <div
-                    style={{
-                        position: "absolute",
-                        bottom: "32px",
-                        left: 0,
-                        right: "100px",
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: "40px",
-                        opacity: isOpen ? 1 : 0,
-                        transition: "opacity 0.45s ease",
-                        transitionDelay: isOpen ? "660ms" : "0ms",
-                        pointerEvents: isOpen ? "auto" : "none",
-                    }}
-                >
-                    {SOCIAL_LINKS.map((s) => (
-                        <a
-                            key={s.label}
-                            href={s.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#888] hover:text-white transition-colors duration-200 font-sans select-none"
-                            style={{ fontSize: "13px", letterSpacing: "0.04em" }}
-                        >
-                            {s.label}
-                        </a>
-                    ))}
-                </div>
-            </div>
-
-            {/* ─────────────────────────────────────────────────────────────
-          LAYER 3 — White curved blob (slides in from right)
-      ───────────────────────────────────────────────────────────────── */}
-            <div
-                style={{
-                    position: "fixed",
-                    right: 0,
-                    top: 0,
-                    height: "100vh",
-                    zIndex: 120,
-                    display: "flex",
-                    alignItems: "center",
-                    transform: isOpen ? "translateX(0)" : "translateX(105%)",
-                    transition: `transform ${isOpen ? "0.65s" : "0.55s"} ${EASE_OUT_EXPO}`,
-                    transitionDelay: isOpen ? "60ms" : "0ms",
-                    pointerEvents: isOpen ? "auto" : "none",
-                }}
-            >
-                {/* SVG blob */}
-                <svg
-                    viewBox="0 0 120 800"
-                    xmlns="http://www.w3.org/2000/svg"
-                    preserveAspectRatio="none"
-                    style={{ height: "100vh", width: "auto", display: "block" }}
-                >
-                    <path
-                        d="M 120 0 L 120 800 C 55 800, 0 690, 22 560 C 50 410, 50 410, 22 255 C 0 130, 55 0, 120 0 Z"
-                        fill="white"
+            <AnimatePresence mode="wait">
+                {isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={onClose}
+                        className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-[2px]"
                     />
-                </svg>
+                )}
+            </AnimatePresence>
 
-                {/* ✕ Close button */}
-                <button
-                    onClick={onClose}
-                    aria-label="Close menu"
-                    style={{
-                        position: "absolute",
-                        left: "20px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        color: "#000",
-                        fontSize: "20px",
-                        width: "36px",
-                        height: "36px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        transition: "opacity 0.2s ease",
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.opacity = "0.5"; }}
-                    onMouseLeave={e => { e.currentTarget.style.opacity = "1"; }}
-                >
-                    ✕
-                </button>
-            </div>
+            <AnimatePresence mode="wait">
+                {isOpen && (
+                    <motion.div
+                        variants={menuSlide}
+                        initial="initial"
+                        animate="enter"
+                        exit="exit"
+                        className="fixed right-0 top-0 h-screen bg-black text-white z-[110] flex flex-col justify-between"
+                        style={{ width: "clamp(300px, 100vw, 100vw)" }}
+                    >
+                        <Curve />
+
+                        {/* ── Logo top-left ── */}
+                        <div className="absolute top-[40px] left-[40px] z-[120]">
+                            <p
+                                className="text-white font-sans font-bold select-none"
+                                style={{ fontSize: "10px", lineHeight: 1.35, letterSpacing: "0.02em" }}
+                            >
+                                HELLO<br />MONDAY<br />/DEPT.
+                            </p>
+                        </div>
+
+                        {/* ── Nav links staggered reveal ── */}
+                        <div className="flex flex-col justify-center h-full px-[10vw] md:px-[20vw]">
+                            <div className="flex flex-col gap-2">
+                                {NAV_LINKS.map((link, i) => (
+                                    <div key={link.href} className="overflow-hidden">
+                                        <motion.div
+                                            custom={i}
+                                            variants={linkSlide}
+                                            initial="initial"
+                                            animate="enter"
+                                            exit="exit"
+                                        >
+                                            <Link
+                                                href={link.href}
+                                                onClick={onClose}
+                                                className="font-garamond text-white block hover:opacity-40 transition-opacity duration-300"
+                                                style={{
+                                                    fontSize: "clamp(56px, 10vw, 140px)",
+                                                    lineHeight: 1,
+                                                    letterSpacing: "-0.02em",
+                                                    fontWeight: 400,
+                                                }}
+                                            >
+                                                {link.label}
+                                            </Link>
+                                        </motion.div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* ── Social links ── */}
+                        <div className="flex justify-center gap-10 pb-10 px-10">
+                            {SOCIAL_LINKS.map((s, i) => (
+                                <motion.a
+                                    key={s.label}
+                                    href={s.href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    custom={i + 5}
+                                    variants={linkSlide}
+                                    initial="initial"
+                                    animate="enter"
+                                    exit="exit"
+                                    className="text-[#888] hover:text-white transition-colors duration-200 font-sans text-[13px] tracking-widest"
+                                >
+                                    {s.label.toUpperCase()}
+                                </motion.a>
+                            ))}
+                        </div>
+
+                        {/* ✕ Close button */}
+                        <button
+                            onClick={onClose}
+                            className="absolute right-10 top-10 text-white text-2xl hover:opacity-50 transition-opacity"
+                        >
+                            ✕
+                        </button>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </>
     );
 };
