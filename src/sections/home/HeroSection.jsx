@@ -5,6 +5,13 @@ import { useEffect, useState, useRef } from "react";
 
 const words = ["Experiences", "Products", "Branding"];
 
+// Shared entrance animation config for hero elements
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 30 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.9, ease: [0.25, 0.46, 0.45, 0.94], delay },
+});
+
 const HeroSection = () => {
   const [index, setIndex] = useState(0);
   const videoRef = useRef(null);
@@ -21,31 +28,37 @@ const HeroSection = () => {
     const video = videoRef.current;
     if (!video) return;
     video.play().catch(() => {
-      // If play() fails (e.g. browser policy), wait for user interaction
       const resume = () => { video.play(); document.removeEventListener("click", resume); };
       document.addEventListener("click", resume, { once: true });
     });
   }, []);
 
   return (
-    <section className="relative h-screen w-full bg-white overflow-hidden px-6 flex flex-col">
+    <section className="relative h-screen w-full bg-white px-6 flex flex-col overflow-hidden">
 
-      {/* Top Nav */}
-      <div className="absolute top-0 left-0 right-0 px-8 md:px-10 py-8 flex justify-between items-start z-10">
+      {/* Top Nav — slides in from top */}
+      <motion.div
+        className="absolute top-0 left-0 right-0 px-8 md:px-10 py-8 flex justify-between items-start z-10"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94], delay: 0.1 }}
+      >
         <p className="font-bold text-[12px] leading-[1.1]">
           HELLO<br />MONDAY<br />/DEPT.
         </p>
-
         <p className="text-[11px] opacity-60">
           2 days until Monday
         </p>
-      </div>
+      </motion.div>
 
       {/* Center */}
       <div className="flex-1 flex flex-col items-center justify-center">
 
-        {/* Video */}
-        <div className="w-[260px] md:w-[420px] lg:w-[500px] mb-8">
+        {/* Video — fades up on mount */}
+        <motion.div
+          className="w-[260px] md:w-[420px] lg:w-[500px] mb-8"
+          {...fadeUp(0.2)}
+        >
           <video
             ref={videoRef}
             src="/assets/images/hm-hero-mobile-non-retina.mp4"
@@ -53,16 +66,20 @@ const HeroSection = () => {
             loop
             muted
             playsInline
-            onEnded={(e) => e.target.play()} // extra loop fallback
+            onEnded={(e) => e.target.play()}
             className="w-full mix-blend-multiply"
           />
-        </div>
+        </motion.div>
 
-        {/* Tagline */}
-        <p className="text-[12px] text-black/60 mb-3">
+        {/* Tagline — fades up slightly after video */}
+        <motion.p
+          className="text-[12px] text-black/60 mb-3"
+          {...fadeUp(0.4)}
+        >
           We make digital (and magical)...
-        </p>
+        </motion.p>
 
+        {/* Rotating word — existing animation kept */}
         <div className="relative h-[160px] md:h-[220px] flex items-center justify-center">
           <AnimatePresence mode="wait">
             <motion.h1
@@ -83,11 +100,6 @@ const HeroSection = () => {
             </motion.h1>
           </AnimatePresence>
         </div>
-
-        {/* Dot */}
-        {/* <div className="mt-6">
-          <span className="block w-[5px] h-[5px] bg-black rounded-full" />
-        </div> */}
 
       </div>
     </section>

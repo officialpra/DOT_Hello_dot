@@ -16,7 +16,13 @@ const Footer = () => {
   }, []);
 
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Use Lenis for premium smooth scroll-to-top if available
+    if (window.scrollToTopLenis) {
+      window.scrollToTopLenis();
+    } else {
+      // Native fallback
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
   };
 
   // Back-to-top: hidden by default, appears when user scrolls to bottom
@@ -25,28 +31,44 @@ const Footer = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      // Calculate how far from the bottom we are
       const scrollY = window.scrollY;
       const windowHeight = window.innerHeight;
       const documentHeight = document.documentElement.scrollHeight;
 
-      // If we are within 20px of the bottom (or reached the end)
-      const shouldShow = (scrollY + windowHeight) >= (documentHeight - 20);
+      // Show when within 200px of the bottom (not just 20px — gives it breathing room)
+      const shouldShow = (scrollY + windowHeight) >= (documentHeight - 200);
 
       if (shouldShow !== isShown.current) {
         isShown.current = shouldShow;
         if (backToTopRef.current) {
           backToTopRef.current.style.opacity = shouldShow ? "1" : "0";
-          backToTopRef.current.style.transform = shouldShow ? "translateY(0)" : "translateY(20px)";
+          backToTopRef.current.style.transform = shouldShow ? "translateY(0)" : "translateY(24px)";
+          backToTopRef.current.style.pointerEvents = shouldShow ? "auto" : "none";
         }
       }
     };
 
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    // Initial check in case they are already at the bottom
-    handleScroll();
+    // Use Lenis scroll event if available (respects smooth scroll position)
+    // Fall back to native scroll event
+    const attachListener = () => {
+      if (window.lenis) {
+        window.lenis.on("scroll", handleScroll);
+        // Also listen native for the initial check
+        window.addEventListener("scroll", handleScroll, { passive: true });
+      } else {
+        window.addEventListener("scroll", handleScroll, { passive: true });
+      }
+      handleScroll(); // check immediately
+    };
 
-    return () => window.removeEventListener("scroll", handleScroll);
+    // Small delay to let Lenis initialize first
+    const timer = setTimeout(attachListener, 100);
+
+    return () => {
+      clearTimeout(timer);
+      if (window.lenis) window.lenis.off("scroll", handleScroll);
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
   return (

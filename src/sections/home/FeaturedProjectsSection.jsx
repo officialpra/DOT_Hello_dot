@@ -1,6 +1,7 @@
 "use client";
 
 import ProjectCard from "@/components/cards/ProjectCard";
+import ScrollReveal from "@/components/effects/ScrollReveal";
 import { PROJECTS } from "@/data/projects";
 
 const FeaturedProjectsSection = () => {
@@ -10,26 +11,39 @@ const FeaturedProjectsSection = () => {
   const col3 = PROJECTS.filter((_, i) => i % 3 === 2);
 
   return (
-    <section className=" pt-20 pb-24 px-8 md:px-10 mt-[100px]">
+    <section className="pt-[120px] pb-24 px-8 md:px-10">
       <div className="max-w-[1400px] mx-auto">
-        {/* Section Header */}
-        {/* <div className="mb-20">
-          <h2 className="font-garamond text-[ clamp(32px,5vw,72px) ] text-black font-normal leading-none tracking-tight">
-            Branding
-          </h2>
-        </div> */}
 
         {/* Masonry-style Grid (3 Flex Columns with 83px gap) */}
         <div className="flex flex-col md:flex-row gap-[83px]">
+
+          {/* Column 1 — base delay */}
           <div className="flex-1 flex flex-col gap-[83px]">
-            {col1.map(p => <ProjectCard key={p.slug} project={p} />)}
+            {col1.map((p, i) => (
+              <ScrollReveal key={p.slug} delay={i * 80} duration={800} y={50}>
+                <ProjectCard project={p} />
+              </ScrollReveal>
+            ))}
           </div>
+
+          {/* Column 2 — slight stagger offset */}
           <div className="flex-1 flex flex-col gap-[83px]">
-            {col2.map(p => <ProjectCard key={p.slug} project={p} />)}
+            {col2.map((p, i) => (
+              <ScrollReveal key={p.slug} delay={120 + i * 80} duration={800} y={50}>
+                <ProjectCard project={p} />
+              </ScrollReveal>
+            ))}
           </div>
+
+          {/* Column 3 — furthest stagger */}
           <div className="flex-1 flex flex-col gap-[83px]">
-            {col3.map(p => <ProjectCard key={p.slug} project={p} />)}
+            {col3.map((p, i) => (
+              <ScrollReveal key={p.slug} delay={240 + i * 80} duration={800} y={50}>
+                <ProjectCard project={p} />
+              </ScrollReveal>
+            ))}
           </div>
+
         </div>
       </div>
     </section>

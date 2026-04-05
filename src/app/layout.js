@@ -1,6 +1,7 @@
 import { Inter, EB_Garamond } from "next/font/google";
 import "./globals.css";
 import PageShell from "@/components/layout/PageShell";
+import SmoothScroll from "@/components/effects/Smoothscroll";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -35,7 +36,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${garamond.variable}`} suppressHydrationWarning>
       <body>
-        <PageShell>{children}</PageShell>
+        <SmoothScroll>
+          <PageShell>{children}</PageShell>
+        </SmoothScroll>
       </body>
     </html>
   );
