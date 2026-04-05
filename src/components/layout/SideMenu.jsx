@@ -249,27 +249,31 @@ const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
 // CURVED PANEL COMPONENTS
 // ============================================================================
 
-const Curve = () => {
-    // Premium 2-segment cubic bezier paths for a truly liquid feel
-    const initialPath = `M 100 0 C 100 25, 100 25, 100 50 C 100 75, 100 75, 100 100`;
-    const targetPath = `M 100 0 C 100 25, 50 25, 50 50 C 50 75, 100 75, 100 100`;
-    const curve = {
-        initial: { d: initialPath },
+const Curve = ({ type = "leading" }) => {
+    // ─── TWO CURVES for the ultimate Hellomonday feel ────────────────────────
+    // "leading"  → Black bulge on the LEFT edge. Leads the slide.
+    // "trailing" → White crescent on the RIGHT edge. Creates the sliver.
 
+    const isLeading = type === "leading";
+
+    // Leading paths: Bulge from right side of SVG (x=100) towards center (x=0)
+    // This sits at -left-[99px], so x=100 is the edge that touches the black panel.
+    const closedLeading = `M 100 0 L 100 100 C 100 75, 100 75, 100 50 C 100 25, 100 25, 100 0 Z`;
+    const openLeading = `M 100 0 L 100 100 C 100 75, 20 75, 20 50 C 20 25, 100 25, 100 0 Z`;
+
+    // Trailing paths: Concave curve on the right (already working)
+    const closedTrailing = `M 100 0 L 100 100 C 100 70, 100 70, 100 50 C 100 30, 100 30, 100 0 Z`;
+    const openTrailing = `M 100 0 L 100 100 C 100 70,  20 70,  20 50 C  20 30, 100 30, 100 0 Z`;
+
+    const variants = {
+        initial: { d: isLeading ? closedLeading : closedTrailing },
         enter: {
-            d: targetPath,
-            transition: {
-                duration: 1.1,
-                ease: [0.22, 1, 0.36, 1],
-            }
+            d: isLeading ? openLeading : openTrailing,
+            transition: { duration: 1.1, ease: [0.76, 0, 0.24, 1] }
         },
-
         exit: {
-            d: targetPath,
-            transition: {
-                duration: 1.1,
-                ease: [0.22, 1, 0.36, 1],
-            }
+            d: isLeading ? closedLeading : closedTrailing,
+            transition: { duration: 0.8, ease: [0.76, 0, 0.24, 1] }
         }
     };
 
@@ -277,9 +281,16 @@ const Curve = () => {
         <svg
             viewBox="0 0 100 100"
             preserveAspectRatio="none"
-            className="absolute top-0 -left-[99px] w-[100px] h-full fill-black stroke-none pointer-events-none"
+            className={`absolute top-0 ${isLeading ? "-left-[99px]" : "right-0"} w-[100px] h-full pointer-events-none hidden md:block`}
+            style={{ zIndex: isLeading ? 0 : 1 }}
         >
-            <motion.path variants={curve} initial="initial" animate="enter" exit="exit" />
+            <motion.path
+                variants={variants}
+                initial="initial"
+                animate="enter"
+                exit="exit"
+                fill={isLeading ? "#000000" : "#ffffff"}
+            />
         </svg>
     );
 };
@@ -350,7 +361,8 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                         className="fixed right-0 top-0 h-screen bg-black text-white z-[110] flex flex-col justify-between"
                         style={{ width: "clamp(300px, 100vw, 100vw)" }}
                     >
-                        <Curve />
+                        <Curve type="leading" />
+                        <Curve type="trailing" />
 
                         {/* ── Logo top-left ── */}
                         <div className="absolute top-[40px] left-[40px] z-[120]">
@@ -363,8 +375,10 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                         </div>
 
                         {/* ── Nav links staggered reveal ── */}
-                        <div className="flex flex-col justify-center h-full px-[10vw] md:px-[20vw]">
-                            <div className="flex flex-col gap-2">
+                        <div
+                            className="flex flex-col justify-center items-center md:items-start h-full md:pl-[55%] px-6 md:pr-[130px]"
+                        >
+                            <div className="flex flex-col items-center md:items-start" style={{ gap: "4px" }}>
                                 {NAV_LINKS.map((link, i) => (
                                     <div key={link.href} className="overflow-hidden">
                                         <motion.div
@@ -377,11 +391,11 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                                             <Link
                                                 href={link.href}
                                                 onClick={onClose}
-                                                className="font-garamond text-white block hover:opacity-40 transition-opacity duration-300"
+                                                className="font-garamond text-white block hover:opacity-40 transition-opacity duration-300 text-center md:text-left"
                                                 style={{
-                                                    fontSize: "clamp(56px, 10vw, 140px)",
-                                                    lineHeight: 1,
-                                                    letterSpacing: "-0.02em",
+                                                    fontSize: "clamp(32px, 12vw, 80px)",
+                                                    lineHeight: 1.1,
+                                                    letterSpacing: "-0.01em",
                                                     fontWeight: 400,
                                                 }}
                                             >
@@ -393,8 +407,10 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                             </div>
                         </div>
 
-                        {/* ── Social links ── */}
-                        <div className="flex justify-center gap-10 pb-10 px-10">
+                        {/* ── Social links — aligned under nav on desktop, centered on mobile ── */}
+                        <div
+                            className="pb-12 md:pb-0 flex justify-center md:justify-start gap-8 md:gap-7 w-full md:w-auto md:absolute md:bottom-8 md:left-[55%]"
+                        >
                             {SOCIAL_LINKS.map((s, i) => (
                                 <motion.a
                                     key={s.label}
@@ -406,17 +422,26 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                                     initial="initial"
                                     animate="enter"
                                     exit="exit"
-                                    className="text-[#888] hover:text-white transition-colors duration-200 font-sans text-[13px] tracking-widest"
+                                    className="text-[#888] hover:text-white transition-colors duration-200 font-sans text-[13px] tracking-[0.05em]"
                                 >
-                                    {s.label.toUpperCase()}
+                                    {s.label}
                                 </motion.a>
                             ))}
                         </div>
 
-                        {/* ✕ Close button */}
+                        {/* ✕ Close button — Top-right white on mobile, centered-in-crescent black on desktop */}
                         <button
                             onClick={onClose}
-                            className="absolute right-10 top-10 text-white text-2xl hover:opacity-50 transition-opacity"
+                            aria-label="Close menu"
+                            className="fixed md:absolute top-8 right-8 md:top-1/2 md:right-[10px] md:-translate-y-1/2 text-white md:text-black hover:scale-110 transition-all duration-200"
+                            style={{
+                                fontSize: "clamp(18px, 5vw, 24px)",
+                                zIndex: 20,
+                                background: "none",
+                                border: "none",
+                                cursor: "pointer",
+                                padding: "10px",
+                            }}
                         >
                             ✕
                         </button>
