@@ -269,7 +269,7 @@ const Curve = ({ type = "leading" }) => {
         initial: { d: isLeading ? closedLeading : closedTrailing },
         enter: {
             d: isLeading ? openLeading : openTrailing,
-            transition: { duration: 1.1, ease: [0.76, 0, 0.24, 1] }
+            transition: { duration: 0.5, ease: [0.76, 0, 0.24, 1] }
         },
         exit: {
             d: isLeading ? closedLeading : closedTrailing,
