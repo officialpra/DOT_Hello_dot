@@ -1,3 +1,4 @@
+
 import { Inter, EB_Garamond } from "next/font/google";
 import "./globals.css";
 import PageShell from "@/components/layout/PageShell";
@@ -32,10 +33,13 @@ if (typeof window !== "undefined") {
   };
 }
 
+import LoaderScreen from "@/components/layout/LoaderScreen";
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${inter.variable} ${garamond.variable}`} suppressHydrationWarning>
       <body>
+        <LoaderScreen />
         <SmoothScroll>
           <PageShell>{children}</PageShell>
         </SmoothScroll>
