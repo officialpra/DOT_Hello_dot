@@ -10,7 +10,7 @@ const FeaturedProjectsSection = () => {
   const col3 = PROJECTS.filter((_, i) => i % 3 === 2);
 
   return (
-    <section className=" pt-20 pb-24 px-8 md:px-10">
+    <section className=" pt-20 pb-24 px-8 md:px-10 mt-[100px]">
       <div className="max-w-[1400px] mx-auto">
         {/* Section Header */}
         {/* <div className="mb-20">

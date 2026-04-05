@@ -1,68 +1,94 @@
 "use client";
 
-import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState, useRef } from "react";
+
+const words = ["Experiences", "Products", "Branding"];
 
 const HeroSection = () => {
-  return (
-    <section className="relative min-h-screen w-full flex flex-col items-center justify-center bg-[#f5f5f5] overflow-hidden px-6">
-      {/* ── Top Navigation Area ── */}
-      <div className="absolute top-0 left-0 right-0 p-8 md:p-10 flex justify-between items-start z-10">
-        {/* Top-Left: Logo */}
-        <div className="select-none">
-          <p className="text-black font-sans font-bold leading-[1.2] text-[11px] md:text-[13px] tracking-tight">
-            HELLO<br />MONDAY<br />/DEPT.
-          </p>
-        </div>
+  const [index, setIndex] = useState(0);
+  const videoRef = useRef(null);
 
-        {/* Top-Right: Info Label */}
-        <div className="flex items-center gap-2 opacity-60">
-          <div className="w-4 h-4 border border-black/80 flex items-center justify-center p-[2px]">
-            <div className="w-full h-full bg-black/10" />
-          </div>
-          <p className="text-black font-sans text-[10px] md:text-[11px] font-medium tracking-wide">
-            2 days until Monday
-          </p>
-        </div>
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % words.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Force video play — safety net for browsers with strict autoPlay policies
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.play().catch(() => {
+      // If play() fails (e.g. browser policy), wait for user interaction
+      const resume = () => { video.play(); document.removeEventListener("click", resume); };
+      document.addEventListener("click", resume, { once: true });
+    });
+  }, []);
+
+  return (
+    <section className="relative h-screen w-full bg-white overflow-hidden px-6 flex flex-col">
+
+      {/* Top Nav */}
+      <div className="absolute top-0 left-0 right-0 px-8 md:px-10 py-8 flex justify-between items-start z-10">
+        <p className="font-bold text-[12px] leading-[1.1]">
+          HELLO<br />MONDAY<br />/DEPT.
+        </p>
+
+        <p className="text-[11px] opacity-60">
+          2 days until Monday
+        </p>
       </div>
 
-      {/* ── Center Content ── */}
-      <div className="flex flex-col items-center w-full max-w-4xl mx-auto">
-        {/* Center Illustration (Video) */}
-        <div className="relative w-[320px] md:w-[480px] lg:w-[560px] aspect-square flex items-center justify-center mb-10 md:mb-14">
+      {/* Center */}
+      <div className="flex-1 flex flex-col items-center justify-center">
+
+        {/* Video */}
+        <div className="w-[260px] md:w-[420px] lg:w-[500px] mb-8">
           <video
+            ref={videoRef}
             src="/assets/images/hm-hero-mobile-non-retina.mp4"
             autoPlay
             loop
             muted
             playsInline
-            className="w-full h-auto object-contain select-none mix-blend-multiply"
+            onEnded={(e) => e.target.play()} // extra loop fallback
+            className="w-full mix-blend-multiply"
           />
         </div>
 
         {/* Tagline */}
-        <p className="text-[12px] md:text-[14px] text-black/60 font-sans tracking-wide text-center mb-4">
+        <p className="text-[12px] text-black/60 mb-3">
           We make digital (and magical)...
         </p>
 
-        {/* Main Heading */}
-        <div className="flex flex-col items-center">
-          <h1
-            className="font-garamond text-black text-center select-none"
-            style={{
-              fontSize: "clamp(64px, 12vw, 160px)",
-              lineHeight: 0.9,
-              fontWeight: 400,
-              letterSpacing: "-0.01em"
-            }}
-          >
-            Experiences
-          </h1>
-
-          {/* Decorative Dot */}
-          <div className="mt-6 md:mt-8">
-            <span className="block w-[6px] h-[6px] rounded-full bg-black" />
-          </div>
+        <div className="relative h-[160px] md:h-[220px] flex items-center justify-center">
+          <AnimatePresence mode="wait">
+            <motion.h1
+              key={words[index]}
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -40 }}
+              transition={{ duration: 0.6, ease: "easeInOut" }}
+              className="absolute text-black text-center font-garamond"
+              style={{
+                fontSize: "clamp(32px, 11vw, 100px)",
+                lineHeight: 0.85,
+                fontWeight: 400,
+                letterSpacing: "-0.02em"
+              }}
+            >
+              {words[index]}
+            </motion.h1>
+          </AnimatePresence>
         </div>
+
+        {/* Dot */}
+        {/* <div className="mt-6">
+          <span className="block w-[5px] h-[5px] bg-black rounded-full" />
+        </div> */}
+
       </div>
     </section>
   );

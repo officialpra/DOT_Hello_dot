@@ -48,7 +48,7 @@ export default function ProjectCard({ project }) {
           />
 
           {/* Fallback/Overlay for SEO - Opacity 0 but technically present */}
-          <div className="opacity-0">
+          <div className="relative opacity-0 w-full h-full">
             <Image
               src={project.image}
               alt={project.title}
@@ -64,7 +64,7 @@ export default function ProjectCard({ project }) {
           <div className="relative inline-block">
             {/* Signature Dot (Appears on card hover) */}
             <div
-              className="absolute -left-[18px] top-[14px] w-[5px] h-[5px]  rounded-full opacity-0 scale-0 transition-all duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:opacity-100 group-hover:scale-100"
+              className="absolute -left-[18px] top-[14px] w-[5px] h-[5px] bg-black rounded-full opacity-0 scale-0 transition-all duration-300 ease-[cubic-bezier(0.25,0.46,0.45,0.94)] group-hover:opacity-100 group-hover:scale-100"
             />
             <h3 className="text-[23px] font-garamond font-light text-black tracking-tight leading-[1.2]">
               {project.title}

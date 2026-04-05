@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 const NAV_LINKS = [
     { label: "Work", href: "/work" },
@@ -19,6 +19,254 @@ const SOCIAL_LINKS = [
 
 const EASE_OUT_EXPO = "cubic-bezier(0.22, 1, 0.36, 1)";
 
+// ============================================================================
+// MATH HELPERS
+// ============================================================================
+
+function lerp(a, b, t) {
+    return a + (b - a) * t;
+}
+
+function clamp(val, min, max) {
+    return Math.max(min, Math.min(max, val));
+}
+
+// ============================================================================
+// SVG PATH GENERATOR
+// Builds a cubic-bezier path that bulges at the mouse Y position
+// ============================================================================
+
+function generateWavePath(mouseY, height, bulgeAmount, spread) {
+    const my = clamp(mouseY, 0, 1);  // Allow full range — no artificial padding
+    const h = height;
+    const svgW = 100;
+    const right = svgW;
+
+    const BASE_BULGE = 0;   // Completely invisible at rest
+    const MAX_BULGE = 70;
+    const activeBulge = BASE_BULGE + (bulgeAmount * (MAX_BULGE - BASE_BULGE));
+
+    const peakX = right - activeBulge;
+    const peakY = my * h;
+    const halfSpread = spread * 0.5;
+
+    // NO clamping — let the curve extend beyond viewport bounds
+    // The SVG clips it naturally via overflow:hidden
+    const topStartY = peakY - spread;
+    const botEndY = peakY + spread;
+
+    return [
+        `M ${right} ${topStartY}`,
+        `C ${right} ${topStartY + halfSpread * 0.3},`,
+        `  ${peakX} ${peakY - halfSpread * 0.5},`,
+        `  ${peakX} ${peakY}`,
+        `C ${peakX} ${peakY + halfSpread * 0.5},`,
+        `  ${right} ${botEndY - halfSpread * 0.3},`,
+        `  ${right} ${botEndY}`,
+        `Z`
+    ].join(" ");
+}
+
+// ============================================================================
+// LIQUID WAVE TRIGGER COMPONENT (Performance-Optimized)
+// ============================================================================
+
+const LiquidWaveTrigger = ({ onOpen, isOpen }) => {
+    const pathRef = useRef(null);
+    const iconRef = useRef(null);
+    const rafRef = useRef(null);
+    const isRunning = useRef(false);     // . Track if loop is active
+    const cachedHeight = useRef(900);    // . Cache height to avoid layout thrash
+
+    const mouseState = useRef({
+        targetY: 0.5,
+        currentY: 0.5,
+        targetBulge: 0,
+        currentBulge: 0,
+    });
+
+    const SPREAD = 350;
+    const SENSOR_WIDTH = 50;       // Only activate within 50px of right edge
+    const SVG_WIDTH = 100;
+
+    // . Start the animation loop (only if not already running)
+    const startLoop = useCallback(() => {
+        if (isRunning.current) return;
+        isRunning.current = true;
+        rafRef.current = requestAnimationFrame(updateFrame);
+    }, []);
+
+    // . Stop the animation loop
+    const stopLoop = useCallback(() => {
+        isRunning.current = false;
+        if (rafRef.current) {
+            cancelAnimationFrame(rafRef.current);
+            rafRef.current = null;
+        }
+    }, []);
+
+    // Animation loop
+    const updateFrame = useCallback(() => {
+        if (!isRunning.current) return;
+
+        const st = mouseState.current;
+
+        // Lerp toward targets
+        st.currentY = lerp(st.currentY, st.targetY, 0.08);
+        st.currentBulge = lerp(st.currentBulge, st.targetBulge, 0.06);
+
+        // . Convergence check — if the wave has fully retracted AND
+        // values have settled, STOP the loop entirely (save CPU)
+        const bulgeSettled = Math.abs(st.currentBulge - st.targetBulge) < 0.001;
+        const ySettled = Math.abs(st.currentY - st.targetY) < 0.001;
+
+        if (bulgeSettled && ySettled && st.targetBulge === 0 && st.currentBulge < 0.002) {
+            st.currentBulge = 0;
+            if (pathRef.current) {
+                pathRef.current.setAttribute("d", generateWavePath(0.5, cachedHeight.current, 0, SPREAD));
+            }
+            isRunning.current = false;
+            return;
+        }
+
+        const h = cachedHeight.current;
+        const path = generateWavePath(st.currentY, h, st.currentBulge, SPREAD);
+
+        if (pathRef.current) {
+            pathRef.current.setAttribute("d", path);
+        }
+
+        // Move icon to the curve's tip (peak center)
+        if (iconRef.current) {
+            const peakY = st.currentY * h;
+            const BASE_BULGE = 0;
+            const MAX_BULGE = 70;
+            const activeBulge = BASE_BULGE + (st.currentBulge * (MAX_BULGE - BASE_BULGE));
+            const peakX = SVG_WIDTH - activeBulge;
+            const iconX = (peakX + SVG_WIDTH) / 2;
+            iconRef.current.style.transform = `translate(${iconX | 0}px, ${peakY | 0}px) translate(-50%, -50%)`;
+            // Fade icon in/out with the wave
+            iconRef.current.style.opacity = st.currentBulge > 0.15 ? String(clamp(st.currentBulge * 2, 0, 1)) : "0";
+        }
+
+        rafRef.current = requestAnimationFrame(updateFrame);
+    }, []);
+
+    // . Cache viewport height (only on resize, not every frame)
+    useEffect(() => {
+        const updateHeight = () => { cachedHeight.current = window.innerHeight; };
+        updateHeight();
+        window.addEventListener("resize", updateHeight, { passive: true });
+        return () => window.removeEventListener("resize", updateHeight);
+    }, []);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => stopLoop();
+    }, [stopLoop]);
+
+    // Mouse tracking — only processes near right edge to avoid card conflicts
+    useEffect(() => {
+        const handleMove = (e) => {
+            const w = window.innerWidth;
+            const distFromRight = w - e.clientX;
+
+            // Early exit — don't process if mouse is far from right edge
+            // This prevents interference with ProjectCard liquid effects
+            if (distFromRight > SENSOR_WIDTH + 20) {
+                const st = mouseState.current;
+                if (st.targetBulge > 0) {
+                    st.targetBulge = 0;
+                    if (st.currentBulge > 0.002) startLoop();
+                }
+                return; // . Skip all processing
+            }
+
+            const st = mouseState.current;
+            const h = cachedHeight.current;
+
+            st.targetY = clamp(e.clientY / h, 0, 1);
+
+            if (distFromRight < SENSOR_WIDTH) {
+                st.targetBulge = clamp(1 - (distFromRight / SENSOR_WIDTH), 0, 1);
+                startLoop();
+            } else {
+                st.targetBulge = 0;
+                if (st.currentBulge > 0.002) startLoop();
+            }
+        };
+
+        window.addEventListener("mousemove", handleMove, { passive: true });
+        return () => window.removeEventListener("mousemove", handleMove);
+    }, [startLoop]);
+
+    if (isOpen) return null;
+
+    const h = cachedHeight.current;
+
+    return (
+        <div className="fixed right-0 top-0 z-50 hidden md:block" style={{ width: `${SVG_WIDTH}px`, height: "100vh", pointerEvents: "none", overflow: "hidden" }}>
+            {/* Invisible sensor */}
+            <div
+                style={{
+                    position: "fixed",
+                    right: 0,
+                    top: 0,
+                    width: `${SENSOR_WIDTH}px`,
+                    height: "100vh",
+                    pointerEvents: "auto",
+                    cursor: "pointer",
+                    zIndex: 51,
+                }}
+                onClick={onOpen}
+            />
+
+            {/* SVG Wave — GPU-composited */}
+            <svg
+                viewBox={`0 0 ${SVG_WIDTH} ${h}`}
+                preserveAspectRatio="none"
+                style={{
+                    position: "absolute",
+                    right: 0,
+                    top: 0,
+                    width: `${SVG_WIDTH}px`,
+                    height: "100vh",
+                    pointerEvents: "none",
+                    willChange: "transform", // . GPU layer promotion
+                }}
+            >
+                <path
+                    ref={pathRef}
+                    d={generateWavePath(0.5, h, 0, SPREAD)}
+                    fill="black"
+                />
+            </svg>
+
+            {/* Hamburger icon — follows curve tip */}
+            <div
+                ref={iconRef}
+                style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    pointerEvents: "none",
+                    willChange: "transform",
+                }}
+            >
+                <div className="flex flex-col gap-[4px] items-center">
+                    <span className="block w-[14px] h-[1.5px] bg-white rounded-full" />
+                    <span className="block w-[14px] h-[1.5px] bg-white rounded-full" />
+                    <span className="block w-[10px] h-[1.5px] bg-white rounded-full" />
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// ============================================================================
+// MAIN SIDEMENU COMPONENT
+// ============================================================================
+
 const SideMenu = ({ isOpen, onClose, onOpen }) => {
     useEffect(() => {
         document.body.style.overflow = isOpen ? "hidden" : "";
@@ -27,29 +275,8 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
 
     return (
         <>
-            {/* ─────────────────────────────────────────────────────────────
-          TRIGGER — curved black pill docked to right edge (always visible)
-      ───────────────────────────────────────────────────────────────── */}
-            <div className="hidden md:flex fixed right-0 top-1/2 -translate-y-1/2 z-50">
-                <button
-                    onClick={onOpen}
-                    aria-label="Open navigation menu"
-                    className="group relative bg-black text-white flex items-center justify-center rounded-l-[100%_50%] transition-all duration-500"
-                    style={{
-                        width: "32px",
-                        height: "500px",
-                        transitionTimingFunction: EASE_OUT_EXPO,
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.width = "44px"; }}
-                    onMouseLeave={e => { e.currentTarget.style.width = "32px"; }}
-                >
-                    <div className="flex flex-col gap-[5px] items-center">
-                        <span className="block w-4 h-[1.5px] bg-white transition-all duration-500 group-hover:w-5" />
-                        <span className="block w-4 h-[1.5px] bg-white transition-all duration-500 group-hover:w-5" />
-                        <span className="block w-3 h-[1.5px] bg-white transition-all duration-500 group-hover:w-4" />
-                    </div>
-                </button>
-            </div>
+            {/* LIQUID WAVE TRIGGER — replaces the old static pill */}
+            <LiquidWaveTrigger onOpen={onOpen} isOpen={isOpen} />
 
             {/* Mobile hamburger */}
             <button
@@ -63,7 +290,7 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
             </button>
 
             {/* ─────────────────────────────────────────────────────────────
-          LAYER 1 — Black background overlay  (fades in first, fades out last)
+          LAYER 1 — Black background overlay
       ───────────────────────────────────────────────────────────────── */}
             <div
                 onClick={onClose}
@@ -74,21 +301,20 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                     backgroundColor: "#000",
                     opacity: isOpen ? 1 : 0,
                     pointerEvents: isOpen ? "auto" : "none",
-                    // OPEN: immediate | CLOSE: wait for content + blob to exit first
                     transition: `opacity ${isOpen ? "0.5s" : "0.4s"} ease`,
                     transitionDelay: isOpen ? "0ms" : "450ms",
                 }}
             />
 
             {/* ─────────────────────────────────────────────────────────────
-          LAYER 2 — Content (logo, nav, social) — sits above overlay
+          LAYER 2 — Content (logo, nav, social)
       ───────────────────────────────────────────────────────────────── */}
             <div
                 style={{
                     position: "fixed",
                     inset: 0,
                     zIndex: 110,
-                    pointerEvents: isOpen ? "none" : "none", // clicks pass through to overlay/links
+                    pointerEvents: isOpen ? "none" : "none",
                 }}
             >
                 {/* ── Logo top-left ── */}
@@ -99,7 +325,6 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                         left: "40px",
                         opacity: isOpen ? 1 : 0,
                         transform: isOpen ? "translateY(0)" : "translateY(-10px)",
-                        // OPEN: after 200ms | CLOSE: immediately
                         transition: `opacity 0.5s ease, transform 0.5s ${EASE_OUT_EXPO}`,
                         transitionDelay: isOpen ? "220ms" : "0ms",
                         pointerEvents: "none",
@@ -126,8 +351,6 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                     }}
                 >
                     {NAV_LINKS.map((link, i) => {
-                        // OPEN: stagger 80ms per item, starting at 220ms
-                        // CLOSE: all disappear fast, no stagger
                         const openDelay = 220 + i * 80;
                         const closeDelay = 0;
                         return (
@@ -162,7 +385,7 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                     })}
                 </nav>
 
-                {/* ── Social links — bottom center, appear last ── */}
+                {/* ── Social links — bottom center ── */}
                 <div
                     style={{
                         position: "absolute",
@@ -173,7 +396,6 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                         justifyContent: "center",
                         gap: "40px",
                         opacity: isOpen ? 1 : 0,
-                        // OPEN: last, delay 660ms | CLOSE: immediately
                         transition: "opacity 0.45s ease",
                         transitionDelay: isOpen ? "660ms" : "0ms",
                         pointerEvents: isOpen ? "auto" : "none",
@@ -196,8 +418,6 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
 
             {/* ─────────────────────────────────────────────────────────────
           LAYER 3 — White curved blob (slides in from right)
-          OPEN: slides in after overlay (delay 60ms)
-          CLOSE: slides back out before overlay fades (delay 0ms, overlay delays 450ms)
       ───────────────────────────────────────────────────────────────── */}
             <div
                 style={{
@@ -209,7 +429,6 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                     display: "flex",
                     alignItems: "center",
                     transform: isOpen ? "translateX(0)" : "translateX(105%)",
-                    // OPEN: slide in at 60ms delay | CLOSE: slide out immediately
                     transition: `transform ${isOpen ? "0.65s" : "0.55s"} ${EASE_OUT_EXPO}`,
                     transitionDelay: isOpen ? "60ms" : "0ms",
                     pointerEvents: isOpen ? "auto" : "none",
@@ -228,7 +447,7 @@ const SideMenu = ({ isOpen, onClose, onOpen }) => {
                     />
                 </svg>
 
-                {/* ✕ Close button — centered on blob */}
+                {/* ✕ Close button */}
                 <button
                     onClick={onClose}
                     aria-label="Close menu"

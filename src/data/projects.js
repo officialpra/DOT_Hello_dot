@@ -51,7 +51,7 @@ export const PROJECTS = [
   {
     slug: "bo-3",
     title: "Bang & Olufsen",
-    image: "/assets/images/c9e296b7-6f82-486f-9929-e978f38a7853.jpeg",
+    image: "/assets/images/1eac3a48-0d56-45b8-9606-f21cfcd91cf0.jpeg",
     tags: ["Experience", "Product"],
     size: "portrait",
   },

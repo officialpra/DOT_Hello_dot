@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const Footer = () => {
   const [isLazyLoaded, setIsLazyLoaded] = useState(false);
@@ -18,6 +18,36 @@ const Footer = () => {
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Back-to-top: hidden by default, appears when user scrolls to bottom
+  const backToTopRef = useRef(null);
+  const isShown = useRef(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Calculate how far from the bottom we are
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+
+      // If we are within 20px of the bottom (or reached the end)
+      const shouldShow = (scrollY + windowHeight) >= (documentHeight - 20);
+
+      if (shouldShow !== isShown.current) {
+        isShown.current = shouldShow;
+        if (backToTopRef.current) {
+          backToTopRef.current.style.opacity = shouldShow ? "1" : "0";
+          backToTopRef.current.style.transform = shouldShow ? "translateY(0)" : "translateY(20px)";
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    // Initial check in case they are already at the bottom
+    handleScroll();
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <footer className="bg-[#f8f6f5] pt-[60px] md:pt-[71px]">
@@ -106,7 +136,7 @@ const Footer = () => {
                 {/* Left Column - Offices */}
                 <div>
                   {/* New York Office */}
-                  <a 
+                  <a
                     className="min-w-[180px] w-full pb-[27px] md:pb-[47px] cursor-pointer block"
                     // href="https://www.google.com/maps/place/Hello+Monday/@40.7385487,-73.9908801,17z/data=!3m1!4b1!4m5!3m4!1s0x89c2598a2e1e0395:0x59d0e9a5cd05d207!8m2!3d40.7385487!4d-73.9886861"
                     target="_blank"
@@ -123,7 +153,7 @@ const Footer = () => {
                   </a>
 
                   {/* Aarhus Office */}
-                  <a 
+                  <a
                     className="min-w-[180px] w-full pb-[27px] md:pb-[47px] cursor-pointer block"
                     // href="https://www.google.com/maps/place/Hello+Monday/@56.1500968,10.2030539,17z/data=!4m13!1m7!3m6!1s0x464c3f8dc17e752d:0x89536a5252bed856!2sBaneg%C3%A5rdspladsen+20A,+1.tv,+8000+Aarhus!3b1!8m2!3d56.150078!4d10.2027439!3m4!1s0x464c3f8dc17e752d:0x62f4201f2d2c96e!8m2!3d56.150078!4d10.2027439"
                     target="_blank"
@@ -143,7 +173,7 @@ const Footer = () => {
                 {/* Right Column - Offices */}
                 <div>
                   {/* Copenhagen Office */}
-                  <a 
+                  <a
                     className="min-w-[180px] w-full pb-[27px] md:pb-[47px] cursor-pointer block"
                     // href="https://www.google.com/maps/place/Hello+Monday/@55.6658995,12.5783361,17z/data=!3m1!4b1!4m5!3m4!1s0x46525311dc95031f:0x653c028e0411e843!8m2!3d55.6658995!4d12.5805301"
                     target="_blank"
@@ -160,7 +190,7 @@ const Footer = () => {
                   </a>
 
                   {/* Amsterdam Office */}
-                  <a 
+                  <a
                     className="min-w-[180px] w-full pb-[27px] md:pb-[47px] cursor-pointer block"
                     // href="https://www.google.com/maps/place/Generaal+Vetterstraat+66,+1059+BW+Amsterdam,+Netherlands/@52.3444874,4.8455721,18.3z/data=!4m6!3m5!1s0x47c5e1f6f430fd65:0x43b4cc85953ad884!8m2!3d52.3444757!4d4.8461934!16s%2Fg%2F11b8v6ztj3"
                     target="_blank"
@@ -180,7 +210,7 @@ const Footer = () => {
 
               {/* Mobile Privacy Link */}
               <div className="md:hidden pt-8">
-                <a 
+                <a
                   className="block w-full pt-[20px] pb-[40px] whitespace-nowrap text-[14px] leading-[1.43] text-black opacity-50 underline"
                   // href="https://www.deptagency.com/en-nl/privacy-policy/" 
                   target="_blank"
@@ -191,7 +221,7 @@ const Footer = () => {
               </div>
 
               {/* Desktop Privacy Link */}
-              <a 
+              <a
                 className="hidden md:block absolute bottom-0 left-[54.62962963%] text-[14px] leading-[1.43] text-black opacity-50 underline"
                 // href="https://www.deptagency.com/en-nl/privacy-policy/" 
                 target="_blank"
@@ -203,11 +233,19 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Bottom Section - Back to Top */}
-        <div className="relative h-[55px] overflow-hidden">
-          <svg 
-            version="1.1" 
-            xmlns="http://www.w3.org/2000/svg" 
+        {/* Bottom Section - Back to Top (hidden by default, appears near bottom) */}
+        <div
+          ref={backToTopRef}
+          className="relative h-[55px] overflow-hidden"
+          style={{
+            opacity: 0,
+            transform: "translateY(0px)",
+            transition: "opacity 0.4s ease, transform 0.4s ease",
+          }}
+        >
+          <svg
+            version="1.1"
+            xmlns="http://www.w3.org/2000/svg"
             xmlnsXlink="http://www.w3.org/1999/xlink"
             onClick={scrollToTop}
             className="absolute bottom-0 h-[55px] w-[545px] md:left-[calc(35.32934%-229px)] left-[calc(50%-272px)] cursor-pointer"
@@ -215,7 +253,7 @@ const Footer = () => {
             <g stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
               <path
                 d="M0,55 C107.57331,55 172.397965,0 261.914001,0 C351.430038,0 418.082695,55 524.041347,55 C630,55 -108,55 0,55 Z"
-                className="cursor-pointer" 
+                className="cursor-pointer"
                 fill="#000000"
               />
             </g>
